@@ -3,7 +3,7 @@
 
 使用方法：
 
-1. **腾讯云部署云函数**：将 `checker.js` 中的代码粘贴到 IDE 中，并安装依赖 axios。具体操作参考[这里](https://github.com/Chorer/WoZaiXiaoYuanPuncher)。
+1. **腾讯云部署云函数**：将 `checker.js` 中的代码粘贴到 IDE 中，并安装依赖 axios。具体操作参考[这里](https://github.com/Chorer/WoZaiXiaoYuanPuncher-cloudFunction)。
 2. **修改配置**：修改 `yiToken` 的值为抓包获取的奕辅导 accessToken，修改 `notifyToken` 为 pushplus 的 token
 
 注意：
