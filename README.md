@@ -17,7 +17,7 @@ git clone git@github.com:Chorer/YiFuDaoChecker-cloudFunction.git
 
 ### 2. 创建云函数
 
-1）`注册腾讯云账号并登录`，进行实名认证
+1）注册腾讯云账号并登录，进行实名认证
 
 2）到 https://console.cloud.tencent.com/scf/list?rid=1&ns=default ，选择 “新建云函数” ➔ “自定义创建”，提交方法选择“本地上传文件夹”，选中 `YiFuDaoChecker-cloudFunction/src` 文件夹上传，点击“完成”即可创建云函数。
 

@@ -28,12 +28,25 @@ const commonHeaders = {
 }
 
 // 获取自己问卷的 id
-const getQuestionIdUrl = 'https://yfd.ly-sky.com/ly-pd-mb/form/api/healthCheckIn/client/stu/index'
-const getQuestionId = () => {
+const getQuestionnaireIdUrl = 'https://yfd.ly-sky.com/ly-pd-mb/form/api/healthCheckIn/client/stu/index'
+const getQuestionnaireId = () => {
   return axios({
     method: 'get',
-    url: getQuestionIdUrl,
+    url: getQuestionnaireIdUrl,
     headers: commonHeaders
+  })
+}
+
+// 获取问卷
+const getQuestionnaire = id => {
+  const getQuestionnaireUrl = `https://yfd.ly-sky.com/ly-pd-mb/form/api/questionnairePublish/${id}/getDetailWithAnswer`
+  return axios({
+    method: 'get',
+    url: getQuestionnaireUrl,
+    headers: {
+      ...commonHeaders,
+      "Content-Type": "application/x-www-form-urlencoded"
+    }
   })
 }
 
@@ -147,13 +160,13 @@ const getAnswers = () => {
     ]
   }
 }
-const submitAnswers = (questionId) => {
+const submitAnswers = (questionnaireId) => {
   return axios({
       method: 'post',
       url: submitAnswersUrl,
       headers: commonHeaders,
       data: {
-        "questionnairePublishEntityId": questionId,
+        "questionnairePublishEntityId": questionnaireId,
         ...getAnswers()
       }
   })
@@ -178,8 +191,8 @@ const notify = (result) => {
 }
 
 exports.main_handler = async () => {
-    const res = await getQuestionId()
-    const data = res.data
+    const questionnaireIdRes = await getQuestionnaireId()
+    const data = questionnaireIdRes.data
     if (data.code === 200) {
       // 打过卡了，无需再次打卡
       if (data.data.hadFill) {
@@ -187,14 +200,24 @@ exports.main_handler = async () => {
       } 
       // 否则打卡
       else {
-        const res = await submitAnswers(data.data.questionnairePublishEntityId)
-        if (res.data.code === 200) {
-          notify('✅ 打卡成功')
+        const questionnaireId = data.data.questionnairePublishEntityId
+        // 问卷校验
+        const questionnaireRes = await getQuestionnaire(questionnaireId)
+        const subjectIdLists = questionnaireRes.data.data.questionnaireWithSubjectVo.subjectList.map(item => item.id)
+        const _subjectIdLists = getAnswers().answerInfoList.map(item => item.subjectId)
+        // 如果问卷的子问题 id 不变，则正常打卡
+        if (subjectIdLists.every((item,index) => item === _subjectIdLists[index])) {
+          const submitRes = await submitAnswers(questionnaireId)
+          if (submitRes.data.code === 200) {
+            notify('✅ 打卡成功')
+          } else {
+            notify(`❌ 打卡失败，原因是: ${submitRes.data.message}`)
+          }
         } else {
-          notify(`❌ 打卡失败，原因是${res.data.message}`)
-        }
+          notify(`❌ 打卡失败，原因是: 问卷内容发生更改`)
+        }       
       }
     } else {
-      notify(`❌ 打卡失败，原因是${data.message}`)
+      notify(`❌ 打卡失败，原因是: ${data.message}`)
     }   
 }
