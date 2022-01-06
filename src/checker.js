@@ -1,18 +1,12 @@
 // 配置项
 const accessToken = '在这里填入奕辅导的 accessToken'
-const notifyToken = '在这里填入 pushplus 的 notifyToken'
-const answers = [
-  "NotThing",
-  "广州",
-  "flag1640743720931",
-  "2",
-  "无",
-  "无",
-  "1",
-  "flag1640955958618"
-]
+const notifyToken = '在这里填入 pushPlus 的 notifyToken'
+const appId = '在这里填入 leanCloud 的 appId'
+const appKey = '在这里填入 leanCloud 的 appKey'
 
-
+// 依赖
+const AV = require('leancloud-storage')
+AV.init({ appId, appKey })
 const axios = require('axios')
 
 // 公共请求头
@@ -21,7 +15,7 @@ const commonHeaders = {
   "Host": "yfd.ly-sky.com",
   "Connection": "keep-alive",
   "Accept-Encoding": "gzip, deflate, br",
-  "Content-Type": "application/json",
+  "Content-Type": "application/json;charset=UTF-8",
   "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36 MicroMessenger/7.0.9.501 NetType/WIFI MiniProgramEnv/Windows WindowsWechat",
   "userAuthType": "MS",
   "Referer": "https://servicewechat.com/wx217628c7eb8ec43c/20/page-frame.html"
@@ -37,7 +31,7 @@ const getQuestionnaireId = () => {
   })
 }
 
-// 获取问卷
+// 获取今日问卷
 const getQuestionnaire = id => {
   const getQuestionnaireUrl = `https://yfd.ly-sky.com/ly-pd-mb/form/api/questionnairePublish/${id}/getDetailWithAnswer`
   return axios({
@@ -50,124 +44,40 @@ const getQuestionnaire = id => {
   })
 }
 
-// 提交表单
-const submitAnswersUrl = 'https://yfd.ly-sky.com/ly-pd-mb/form/api/answerSheet/saveNormal'
-const getAnswers = () => {
-  let location = null  
-  if (answers[1] === '广州') {
-    location = {
-      "deviationDistance":10096,
-      "locationRangeId":"1001640054768198000150000000001",
-      "address":"广东省广州市海珠区赤沙西约石伦里横街",
-      "city":"广州市",
-      "province":"广东省",
-      "area":"海珠区",
-      "latitude":23.091564888,
-      "longitude":113.35413091 
-    }
+// 获取数据库中的问卷答案
+const getAnswers = async (questionnaireId) => {
+  const obj = await new AV.Query('Answers').first();
+  // 如果数据库没有缓存答案，则请求并缓存
+  if (!obj.get('answers')) {        
+      const questionnaireRes = await getQuestionnaire(questionnaireId)
+      let answers = questionnaireRes.data.data.answerInfoList      
+      if (!answers || !answers.length) {
+        return false            
+      } else {
+        answers = answers.map(item => ({
+          subjectId: item.subjectId,
+          subjectType: item.subjectType,
+          [item.subjectType]: item[item.subjectType]
+        }))
+        obj.set('answers', answers)
+        obj.save()  
+      }      
   } 
-  else if (answers[1] === '佛山') {
-    location = {
-      "deviationDistance":10096,
-      "locationRangeId":"1001640309486435000430000000001",
-      "address":"广东省佛山市三水区学海中路",
-      "city":"佛山市",
-      "province":"广东省",
-      "area":"三水区",
-      "latitude":23.2062,
-      "longitude":112.86028
-    }
-  }
   return {
-    "answerInfoList":[
-        // 1.关于新冠肺炎，你当前的情况是
-        {
-            "subjectId":"1001640315554537000980000000001",
-            "subjectType":"multiSelect",
-            "multiSelect":{
-                "optionAnswerList":[
-                    {
-                        "beSelectValue":answers[0],
-                        "fillContent":""
-                    }
-                ]
-            }
-        },
-        // 2.你的当前所在地
-        {
-            "subjectId":"1001640315554577000980000000001",
-            "subjectType":"location",
-            "location": location            
-        },
-        // 3.今日是否接触重点疫区人员
-        {
-            "subjectId":"1001640743741123000960000000001",
-            "subjectType":"signleSelect",
-            "signleSelect":{
-                "beSelectValue":answers[2],
-                "fillContent":""
-            }
-        },
-        // 4.今日是否接触确诊新冠肺炎患者
-        {
-            "subjectId":"1001640743758116001000000000001",
-            "subjectType":"signleSelect",
-            "signleSelect":{
-                "beSelectValue":answers[3],
-                "fillContent":""
-            }
-        },
-        // 5.接触详情
-        {
-            "subjectId":"1001640743801628001000000000001",
-            "subjectType":"simpleFill",
-            "simpleFill":{
-                "inputContent":answers[4],
-                "imgList":[
-  
-                ]
-            }
-        },
-        // 6.需要特别说明的事项
-        {
-            "subjectId":"1001640743816621000960000000001",
-            "subjectType":"simpleFill",
-            "simpleFill":{
-                "inputContent":answers[5],
-                "imgList":[
-  
-                ]
-            }
-        },
-        // 7.今日家庭成员健康状况
-        {
-            "subjectId":"1001640743859737000980000000001",
-            "subjectType":"signleSelect",
-            "signleSelect":{
-                "beSelectValue":answers[6],
-                "fillContent":""
-            }
-        },
-        // 8.接种新冠疫苗情况
-        {
-            "subjectId":"1001640956029680001500000000001",
-            "subjectType":"signleSelect",
-            "signleSelect":{
-                "beSelectValue":answers[7],                        
-                "fillContent":""
-            }
-        }     
-    ]
+    "answerInfoList": obj.get('answers')      
   }
 }
-const submitAnswers = (questionnaireId) => {
+
+// 提交表单
+const submitAnswersUrl = 'https://yfd.ly-sky.com/ly-pd-mb/form/api/answerSheet/saveNormal'
+const submitAnswers = async (questionnaireId,answers) => {
   return axios({
       method: 'post',
       url: submitAnswersUrl,
       headers: commonHeaders,
       data: {
         "questionnairePublishEntityId": questionnaireId,
-        ...getAnswers()
+        ...answers
       }
   })
 }
@@ -193,21 +103,26 @@ const notify = (result) => {
 exports.main_handler = async () => {
     const questionnaireIdRes = await getQuestionnaireId()
     const data = questionnaireIdRes.data
+    const questionnaireId = data.data.questionnairePublishEntityId
+    const answers = await getAnswers(questionnaireId)
+    if (!answers) {
+      notify('❌ 首次使用本脚本，请先手动打卡一次或者确保今天已经打卡，以便在数据库中存入打卡数据')
+      return
+    }
     if (data.code === 200) {
       // 打过卡了，无需再次打卡
       if (data.data.hadFill) {
         notify('✅ 你已经打卡了')
       } 
       // 否则打卡
-      else {
-        const questionnaireId = data.data.questionnairePublishEntityId
+      else {        
         // 问卷校验
         const questionnaireRes = await getQuestionnaire(questionnaireId)
         const subjectIdLists = questionnaireRes.data.data.questionnaireWithSubjectVo.subjectList.map(item => item.id)
-        const _subjectIdLists = getAnswers().answerInfoList.map(item => item.subjectId)
+        const _subjectIdLists = answers.answerInfoList.map(item => item.subjectId)
         // 如果问卷的子问题 id 不变，则正常打卡
         if (subjectIdLists.every((item,index) => item === _subjectIdLists[index])) {
-          const submitRes = await submitAnswers(questionnaireId)
+          const submitRes = await submitAnswers(questionnaireId,answers)
           if (submitRes.data.code === 200) {
             notify('✅ 打卡成功')
           } else {
@@ -215,9 +130,9 @@ exports.main_handler = async () => {
           }
         } else {
           notify(`❌ 打卡失败，原因是: 问卷内容发生更改`)
-        }       
+        }     
       }
     } else {
-      notify(`❌ 打卡失败，原因是: ${data.message}`)
+      notify(`❌ 打卡失败，原因是${data.message}`)
     }   
 }
