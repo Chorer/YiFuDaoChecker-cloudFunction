@@ -76,8 +76,10 @@ const submitAnswers = async (questionnaireId,answers) => {
       url: submitAnswersUrl,
       headers: commonHeaders,
       data: {
-        "questionnairePublishEntityId": questionnaireId,
-        ...answers
+        "answerInfoList" : [
+          ...answers         
+        ],
+        "questionnairePublishEntityId" : questionnaireId
       }
   })
 }
